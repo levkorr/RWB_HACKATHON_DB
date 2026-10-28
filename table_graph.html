@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Capibara · схема core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF1F6; --dot:#CDD3DE; --surface:#FFFFFF; --ink:#172033; --muted:#5B6578;
+  --line:#8A94A8; --border:#D5DAE3; --fact:#2B4BFF; --fact-ink:#FFFFFF;
+  --dim:#E6EBFF; --dim-ink:#1A2C99; --key:#B45309; --fk:#2B4BFF; --active:#2B4BFF;
+  --row-hover:#F3F5FA; --panel:#FFFFFF;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10141C; --dot:#252C3A; --surface:#182030; --ink:#E4E8F0; --muted:#9AA4B8;
+    --line:#5D6880; --border:#2A3346; --fact:#5A72FF; --fact-ink:#FFFFFF;
+    --dim:#22305A; --dim-ink:#C9D3FF; --key:#F2B45A; --fk:#8FA2FF; --active:#8FA2FF;
+    --row-hover:#1F2940; --panel:#161D2B; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10141C; --dot:#252C3A; --surface:#182030; --ink:#E4E8F0; --muted:#9AA4B8;
+  --line:#5D6880; --border:#2A3346; --fact:#5A72FF; --fact-ink:#FFFFFF;
+  --dim:#22305A; --dim-ink:#C9D3FF; --key:#F2B45A; --fk:#8FA2FF; --active:#8FA2FF;
+  --row-hover:#1F2940; --panel:#161D2B; color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg);overflow:hidden}
+#viewport{position:fixed;inset:0;overflow:hidden;cursor:grab;touch-action:none;
+  background-image:radial-gradient(var(--dot) 1px, transparent 1px);background-size:22px 22px}
+#viewport.panning{cursor:grabbing}
+#world{position:absolute;left:0;top:0;transform-origin:0 0}
+#edges{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+.tbl{position:absolute;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 1px 2px rgba(20,30,60,.06),0 6px 18px rgba(20,30,60,.06);transition:opacity .15s, box-shadow .15s;user-select:none}
+.tbl.sel{box-shadow:0 0 0 2px var(--active),0 8px 24px rgba(20,30,60,.12)}
+.tbl.faded{opacity:.28}
+.hd{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:9px 12px;border-radius:9px 9px 0 0;cursor:move}
+.fact .hd{background:var(--fact);color:var(--fact-ink)}
+.dim .hd{background:var(--dim);color:var(--dim-ink)}
+.hd b{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:500;font-size:14px}
+.hd span{font-size:12px;opacity:.8}
+.row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:6px;padding:0 12px;height:24px;font-size:12.5px;border-top:1px solid transparent}
+.row:hover{background:var(--row-hover)}
+.row .k{font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:500;color:var(--key)}
+.row .k.fk{color:var(--fk)}
+.row .n{font-family:"IBM Plex Mono",monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .n.nn{font-weight:500}
+.row .t{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:11.5px}
+.row.hl{background:var(--row-hover)}
+.row:last-child{border-radius:0 0 9px 9px}
+.tbl .body{padding:4px 0 6px}
+
+#bar{position:fixed;left:16px;top:calc(16px + env(safe-area-inset-top,0px));display:flex;gap:6px;align-items:center;z-index:5;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px;box-shadow:0 4px 14px rgba(20,30,60,.08)}
+#bar h1{font-size:14px;font-weight:600;margin:0 8px 0 6px;white-space:nowrap}
+#bar button{font:inherit;font-size:13px;color:var(--ink);background:transparent;border:1px solid var(--border);border-radius:7px;height:30px;min-width:30px;padding:0 9px;cursor:pointer}
+#bar button:hover{background:var(--row-hover)}
+#bar button:focus-visible,#panel button:focus-visible{outline:2px solid var(--active);outline-offset:1px}
+#zoom{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--muted);min-width:46px;text-align:center}
+.sep{width:1px;height:20px;background:var(--border);margin:0 2px}
+
+#legend{position:fixed;left:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:5;background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 14px rgba(20,30,60,.08)}
+#legend div{display:flex;align-items:center;gap:8px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block}
+
+#panel{position:fixed;right:16px;top:calc(16px + env(safe-area-inset-top,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:340px;z-index:6;background:var(--panel);
+  border:1px solid var(--border);border-radius:12px;box-shadow:0 8px 28px rgba(20,30,60,.12);display:flex;flex-direction:column;transform:translateX(calc(100% + 24px));transition:transform .2s ease}
+#panel.open{transform:none}
+#panel header{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:16px 16px 10px;border-bottom:1px solid var(--border)}
+#panel h2{font-family:"IBM Plex Mono",monospace;font-weight:500;font-size:16px;margin:0 0 4px}
+#panel p{margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+#panel button{font:inherit;background:transparent;border:1px solid var(--border);color:var(--ink);border-radius:7px;width:30px;height:30px;cursor:pointer;flex:none}
+#cols{overflow:auto;padding:6px 16px 16px}
+#cols dl{margin:0}
+#cols dt{font-family:"IBM Plex Mono",monospace;font-size:13px;margin-top:12px;display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+#cols dt i{font-style:normal;color:var(--muted);font-size:12px}
+#cols dt em{font-style:normal;font-size:10.5px;color:var(--key);font-weight:500}
+#cols dd{margin:3px 0 0;font-size:13px;line-height:1.5;color:var(--muted)}
+#rels{font-size:13px;line-height:1.6;padding:0 16px 14px;color:var(--muted)}
+#rels code{font-family:"IBM Plex Mono",monospace;color:var(--ink);font-size:12px}
+#hint{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));font-size:12px;color:var(--muted);z-index:4;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+@media (max-width:720px){#bar h1{display:none}#panel{width:auto;left:16px;top:auto;height:55%}#hint{display:none}}
+@media (prefers-reduced-motion:reduce){#panel,.tbl{transition:none}}
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="world"><svg id="edges" width="1" height="1"></svg></div>
+</div>
+
+<div id="bar" role="toolbar" aria-label="Управление схемой">
+  <h1>Capibara · core</h1>
+  <button id="zout" aria-label="Уменьшить">−</button>
+  <span id="zoom">100%</span>
+  <button id="zin" aria-label="Увеличить">+</button>
+  <span class="sep"></span>
+  <button id="fit">Вписать</button>
+  <button id="reset">Сбросить раскладку</button>
+  <button id="theme" aria-label="Сменить тему">◐</button>
+</div>
+
+<div id="legend">
+  <div><span class="sw" style="background:var(--fact)"></span>Факт</div>
+  <div><span class="sw" style="background:var(--dim);border:1px solid var(--border)"></span>Справочник</div>
+  <div><svg width="44" height="14" aria-hidden="true"><line x1="2" y1="7" x2="42" y2="7" stroke="var(--line)" stroke-width="1.4"/><line x1="8" y1="2" x2="8" y2="12" stroke="var(--line)" stroke-width="1.4"/><line x1="12" y1="2" x2="12" y2="12" stroke="var(--line)" stroke-width="1.4"/><path d="M28 7 L42 2 M28 7 L42 7 M28 7 L42 12" stroke="var(--line)" stroke-width="1.4" fill="none"/></svg>один ко многим</div>
+</div>
+
+<div id="hint">Колесо — масштаб · тяни фон — сдвиг · тяни шапку — переставить · клик — подробности</div>
+
+<aside id="panel" aria-live="polite">
+  <header><div><h2 id="pTitle"></h2><p id="pDesc"></p></div><button id="pClose" aria-label="Закрыть">✕</button></header>
+  <div id="rels"></div>
+  <div id="cols"></div>
+</aside>
+
+<script>
+const TABLES = [
+  {id:'fact_order', kind:'fact', x:440, y:40, title:'заказ',
+   desc:'Одна строка — заказ, все 99 441. Адрес доставки перенесён из raw.customers: customer_id в источнике привязан к заказу.',
+   cols:[
+    ['order_id','text','PK',0,'Идентификатор заказа'],
+    ['customer_unique_id','text','FK',0,'Покупатель → dim_customer'],
+    ['source_customer_id','text','UK',0,'customer_id из raw, для сверки с источником'],
+    ['status_code','text','FK',0,'Статус → dim_order_status'],
+    ['purchased_at','timestamp','',0,'Момент оформления'],
+    ['purchase_date','date','',0,'Дата покупки'],
+    ['approved_at','timestamp','',1,'Подтверждение оплаты'],
+    ['delivered_carrier_at','timestamp','',1,'Передан в доставку'],
+    ['delivered_customer_at','timestamp','',1,'Вручён покупателю'],
+    ['estimated_delivery_date','date','',1,'Обещанная дата доставки'],
+    ['ship_zip_code_prefix','char(5)','',1,'Индекс доставки, с ведущими нулями'],
+    ['ship_city','text','',1,'Город доставки'],
+    ['ship_state','char(2)','',1,'Штат доставки'],
+    ['has_items','boolean','',0,'Есть ли позиции; false у 775 заказов'],
+    ['has_payment','boolean','',0,'Есть ли платежи; false у 1 заказа'],
+    ['dq_status_date_conflict','boolean','',0,'Статус противоречит датам: delivered без даты вручения (8) или canceled с датой вручения (6)'],
+    ['dq_carrier_before_purchase','boolean','',0,'Передан в доставку раньше покупки (166)']
+  ]},
+  {id:'fact_order_item', kind:'fact', x:860, y:40, title:'позиция',
+   desc:'Одна строка — одна единица товара. Колонки «количество» в источнике нет: две одинаковые единицы — две строки.',
+   cols:[
+    ['order_id','text','PK FK',0,'Заказ → fact_order'],
+    ['order_item_id','smallint','PK',0,'Порядковый номер внутри заказа, не идентификатор'],
+    ['product_id','text','FK',0,'Товар → dim_product'],
+    ['seller_id','text','FK',0,'Продавец → dim_seller'],
+    ['shipping_limit_at','timestamp','',0,'Крайний срок отгрузки продавцом'],
+    ['price','numeric(12,2)','',0,'Цена товара'],
+    ['freight_value','numeric(12,2)','',0,'Стоимость доставки этой позиции']
+  ]},
+  {id:'fact_payment', kind:'fact', x:860, y:330, title:'платёж',
+   desc:'Один платёж по заказу. Сумма платежей не обязана совпадать с price + freight_value (ваучеры, проценты по рассрочке): расхождение больше 1 у 309 заказов.',
+   cols:[
+    ['order_id','text','PK FK',0,'Заказ → fact_order'],
+    ['payment_sequential','smallint','PK',0,'Номер платежа внутри заказа'],
+    ['payment_type','text','FK',0,'Способ → dim_payment_type'],
+    ['installments','smallint','',0,'Число частей рассрочки; в источнике 2 строки с 0'],
+    ['payment_value','numeric(12,2)','',0,'Сумма; в источнике 9 нулевых платежей']
+  ]},
+  {id:'fact_review', kind:'fact', x:440, y:560, title:'отзыв',
+   desc:'review_id не уникален (98 410 значений на 99 224 строки), у 547 заказов больше одного отзыва — поэтому ключ составной.',
+   cols:[
+    ['review_id','text','PK',0,'Идентификатор анкеты'],
+    ['order_id','text','PK FK',0,'Заказ → fact_order'],
+    ['review_score','smallint','',0,'Оценка, CHECK 1..5'],
+    ['comment_title','text','',1,'Заголовок комментария'],
+    ['comment_message','text','',1,'Текст комментария'],
+    ['created_date','date','',0,'Дата создания анкеты'],
+    ['answered_at','timestamp','',1,'Момент ответа покупателя']
+  ]},
+  {id:'dim_customer', kind:'dim', x:40, y:40, title:'покупатель',
+   desc:'Покупатель по customer_unique_id. Адрес — из последнего заказа; для доставки используется адрес из fact_order.',
+   cols:[
+    ['customer_unique_id','text','PK',0,'Сквозной идентификатор покупателя'],
+    ['last_zip_code_prefix','char(5)','',1,'Индекс из последнего заказа, с ведущими нулями'],
+    ['last_city','text','',1,'Город из последнего заказа'],
+    ['last_state','char(2)','',1,'Штат из последнего заказа']
+  ]},
+  {id:'dim_order_status', kind:'dim', x:40, y:300, title:'статус',
+   desc:'Заполняется вручную в скрипте сборки. 8 статусов: created, approved, invoiced, processing, shipped, delivered (stage 1–6), canceled и unavailable (stage 0).',
+   cols:[
+    ['status_code','text','PK',0,'Код статуса из источника'],
+    ['status_name_ru','text','',0,'Название по-русски'],
+    ['stage_order','smallint','',0,'Порядок этапа; 0 для отменённых и недоступных']
+  ]},
+  {id:'dim_product', kind:'dim', x:1280, y:40, title:'товар',
+   desc:'Все товары. Опечатки источника в названиях колонок (…_lenght) исправлены.',
+   cols:[
+    ['product_id','text','PK',0,'Идентификатор товара'],
+    ['category_id','smallint','FK',0,'Категория → dim_category; у 610 товаров без категории = 0'],
+    ['name_length','integer','',1,'В raw product_name_lenght'],
+    ['description_length','integer','',1,'В raw product_description_lenght'],
+    ['photos_qty','integer','',1,'Число фото'],
+    ['weight_g','integer','',1,'Вес, г'],
+    ['length_cm','integer','',1,'Длина, см'],
+    ['height_cm','integer','',1,'Высота, см'],
+    ['width_cm','integer','',1,'Ширина, см']
+  ]},
+  {id:'dim_category', kind:'dim', x:1700, y:40, title:'категория',
+   desc:'Объединение категорий из products и справочника перевода: 73 категории + 1 служебная (0 — «не указана») = 74 строки.',
+   cols:[
+    ['category_id','smallint','PK',0,'Суррогатный ключ; 0 — категория не указана'],
+    ['category_name_pt','text','UK',0,'Название на португальском; для 0 — unknown'],
+    ['category_name_en','text','',1,'Перевод; NULL, если перевода нет'],
+    ['has_translation','boolean','',0,'Есть ли строка в справочнике перевода'],
+    ['is_unknown','boolean','',0,'true только для category_id = 0']
+  ]},
+  {id:'dim_seller', kind:'dim', x:1280, y:350, title:'продавец',
+   desc:'Все продавцы. Город хранится и как в источнике, и в очищенном виде.',
+   cols:[
+    ['seller_id','text','PK',0,'Идентификатор продавца'],
+    ['zip_code_prefix','char(5)','',1,'Почтовый индекс, с ведущими нулями'],
+    ['city_raw','text','',1,'Город как в источнике'],
+    ['city','text','',1,'Город после очистки'],
+    ['state','char(2)','',1,'Штат продавца']
+  ]},
+  {id:'dim_payment_type', kind:'dim', x:1280, y:580, title:'способ оплаты',
+   desc:'credit_card, boleto, voucher, debit_card и not_defined (is_known = false).',
+   cols:[
+    ['payment_type','text','PK',0,'Код способа оплаты'],
+    ['payment_type_name_ru','text','',0,'Название по-русски'],
+    ['is_known','boolean','',0,'false только для not_defined']
+  ]}
+];
+const RELS = [
+  ['fact_order.customer_unique_id','dim_customer.customer_unique_id'],
+  ['fact_order.status_code','dim_order_status.status_code'],
+  ['fact_order_item.order_id','fact_order.order_id'],
+  ['fact_payment.order_id','fact_order.order_id'],
+  ['fact_review.order_id','fact_order.order_id'],
+  ['fact_order_item.product_id','dim_product.product_id'],
+  ['fact_order_item.seller_id','dim_seller.seller_id'],
+  ['dim_product.category_id','dim_category.category_id'],
+  ['fact_payment.payment_type','dim_payment_type.payment_type']
+];
+
+const DEFAULT_POS = Object.fromEntries(TABLES.map(t=>[t.id,{x:t.x,y:t.y}]));
+const STORE = 'capibara-erd-layout-v1';
+try{ const s = JSON.parse(localStorage.getItem(STORE)||'null'); if(s) TABLES.forEach(t=>{ if(s[t.id]){t.x=s[t.id].x;t.y=s[t.id].y;} }); }catch(e){}
+const saveLayout = ()=>{ try{ localStorage.setItem(STORE, JSON.stringify(Object.fromEntries(TABLES.map(t=>[t.id,{x:t.x,y:t.y}])))); }catch(e){} };
+
+const vp = document.getElementById('viewport'), world = document.getElementById('world'), svg = document.getElementById('edges');
+const byId = {}; const rowEl = {};
+const esc = s => s.replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+TABLES.forEach(t=>{
+  const el = document.createElement('div');
+  el.className = 'tbl '+t.kind; el.dataset.id = t.id; el.tabIndex = 0;
+  el.innerHTML = `<div class="hd"><b>${t.id}</b><span>${t.title}</span></div><div class="body">${
+    t.cols.map(([n,ty,k,nul])=>`<div class="row" data-col="${n}" title="${esc(n)}"><span class="k ${k.includes('FK')&&!k.includes('PK')?'fk':''}">${k}</span><span class="n ${nul?'':'nn'}">${n}</span><span class="t">${ty}${nul?'':''}</span></div>`).join('')
+  }</div>`;
+  world.appendChild(el); byId[t.id] = {t, el};
+  el.querySelectorAll('.row').forEach(r=> rowEl[t.id+'.'+r.dataset.col] = r);
+});
+
+let scale = 1, tx = 0, ty = 0, selected = null;
+const apply = ()=>{ world.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; document.getElementById('zoom').textContent = Math.round(scale*100)+'%'; };
+const layout = ()=>{ TABLES.forEach(t=>{ const e = byId[t.id].el; e.style.left = t.x+'px'; e.style.top = t.y+'px'; }); };
+
+function anchor(key){
+  const [tid] = key.split('.'); const {t, el} = byId[tid]; const r = rowEl[key];
+  return { l:t.x, r:t.x+el.offsetWidth, y:t.y + r.offsetTop + r.offsetHeight/2, cx:t.x+el.offsetWidth/2, w:el.offsetWidth, tid };
+}
+function drawEdges(){
+  let out = '';
+  RELS.forEach(([from,to])=>{
+    const a = anchor(from), b = anchor(to);
+    let x1,d1,x2,d2;
+    if (Math.abs(a.cx-b.cx) < (a.w+b.w)/2){ x1=a.l; d1=-1; x2=b.l; d2=-1; }
+    else if (a.cx < b.cx){ x1=a.r; d1=1; x2=b.l; d2=-1; }
+    else { x1=a.l; d1=-1; x2=b.r; d2=1; }
+    const y1=a.y, y2=b.y;
+    const k = d1===d2 ? 70 : Math.max(50, Math.abs(x2-x1)/2);
+    const active = selected && (a.tid===selected || b.tid===selected);
+    const dim = selected && !active;
+    const col = active ? 'var(--active)' : 'var(--line)';
+    const sw = active ? 2 : 1.4;
+    const op = dim ? .18 : 1;
+    out += `<g opacity="${op}" stroke="${col}" stroke-width="${sw}" fill="none" stroke-linecap="round">
+      <path d="M${x1} ${y1} C${x1+d1*k} ${y1} ${x2+d2*k} ${y2} ${x2} ${y2}"/>
+      <path d="M${x1+d1*16} ${y1} L${x1} ${y1-7} M${x1+d1*16} ${y1} L${x1} ${y1} M${x1+d1*16} ${y1} L${x1} ${y1+7}"/>
+      <circle cx="${x1+d1*22}" cy="${y1}" r="4" fill="var(--bg)"/>
+      <path d="M${x2+d2*8} ${y2-7} L${x2+d2*8} ${y2+7} M${x2+d2*13} ${y2-7} L${x2+d2*13} ${y2+7}"/>
+    </g>`;
+  });
+  svg.innerHTML = out;
+}
+function render(){ layout(); drawEdges(); }
+
+function bbox(){
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  TABLES.forEach(t=>{ const e=byId[t.id].el; x0=Math.min(x0,t.x); y0=Math.min(y0,t.y); x1=Math.max(x1,t.x+e.offsetWidth); y1=Math.max(y1,t.y+e.offsetHeight); });
+  return {x0,y0,x1,y1};
+}
+function fit(){
+  const b = bbox(), pad = 60, W = vp.clientWidth, H = vp.clientHeight;
+  const top = 70, avH = H - top - 20;
+  scale = Math.min((W-pad*2)/(b.x1-b.x0), (avH-pad)/(b.y1-b.y0), 1.4);
+  scale = Math.max(scale, .15);
+  tx = (W - (b.x1-b.x0)*scale)/2 - b.x0*scale;
+  ty = top + (avH - (b.y1-b.y0)*scale)/2 - b.y0*scale;
+  apply();
+}
+function zoomAt(f, cx, cy){
+  const ns = Math.min(3, Math.max(.15, scale*f)); f = ns/scale;
+  tx = cx - (cx-tx)*f; ty = cy - (cy-ty)*f; scale = ns; apply();
+}
+
+vp.addEventListener('wheel', e=>{
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
+  zoomAt(f, e.clientX, e.clientY);
+},{passive:false});
+
+const pointers = new Map(); let drag = null, pinch = null;
+vp.addEventListener('pointerdown', e=>{
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  vp.setPointerCapture(e.pointerId);
+  if (pointers.size === 2){
+    const [p,q] = [...pointers.values()];
+    pinch = {d:Math.hypot(p.x-q.x,p.y-q.y), s:scale}; drag = null; return;
+  }
+  const tblEl = e.target.closest('.tbl');
+  const hd = e.target.closest('.hd');
+  if (tblEl && hd){
+    const t = byId[tblEl.dataset.id].t;
+    drag = {type:'move', t, sx:e.clientX, sy:e.clientY, ox:t.x, oy:t.y, moved:false, tbl:tblEl};
+  } else {
+    drag = {type:'pan', sx:e.clientX, sy:e.clientY, ox:tx, oy:ty, moved:false, tbl:tblEl};
+  }
+});
+vp.addEventListener('pointermove', e=>{
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (pinch && pointers.size===2){
+    const [p,q] = [...pointers.values()];
+    const d = Math.hypot(p.x-q.x,p.y-q.y);
+    zoomAt((pinch.s*d/pinch.d)/scale, (p.x+q.x)/2, (p.y+q.y)/2); return;
+  }
+  if (!drag) return;
+  const dx = e.clientX-drag.sx, dy = e.clientY-drag.sy;
+  if (Math.abs(dx)+Math.abs(dy) > 4) drag.moved = true;
+  if (!drag.moved) return;
+  if (drag.type==='move'){ drag.t.x = Math.round(drag.ox + dx/scale); drag.t.y = Math.round(drag.oy + dy/scale); render(); }
+  else { vp.classList.add('panning'); tx = drag.ox+dx; ty = drag.oy+dy; apply(); }
+});
+const end = e=>{
+  pointers.delete(e.pointerId);
+  if (pointers.size<2) pinch = null;
+  if (!drag) return;
+  vp.classList.remove('panning');
+  if (!drag.moved){ select(drag.tbl ? drag.tbl.dataset.id : null); }
+  else if (drag.type==='move') saveLayout();
+  drag = null;
+};
+vp.addEventListener('pointerup', end); vp.addEventListener('pointercancel', end);
+
+function select(id){
+  selected = id;
+  const linked = new Set([id]);
+  if (id) RELS.forEach(([a,b])=>{ const ta=a.split('.')[0], tb=b.split('.')[0]; if(ta===id) linked.add(tb); if(tb===id) linked.add(ta); });
+  TABLES.forEach(t=>{ const e=byId[t.id].el; e.classList.toggle('sel', t.id===id); e.classList.toggle('faded', !!id && !linked.has(t.id)); });
+  document.querySelectorAll('.row.hl').forEach(r=>r.classList.remove('hl'));
+  if (id) RELS.forEach(([a,b])=>{ if(a.startsWith(id+'.')||b.startsWith(id+'.')){ rowEl[a].classList.add('hl'); rowEl[b].classList.add('hl'); } });
+  drawEdges(); showPanel(id);
+}
+function showPanel(id){
+  const p = document.getElementById('panel');
+  if (!id){ p.classList.remove('open'); return; }
+  const t = byId[id].t;
+  document.getElementById('pTitle').textContent = t.id;
+  document.getElementById('pDesc').textContent = t.desc;
+  const out = RELS.filter(([a])=>a.startsWith(id+'.')).map(([a,b])=>`<div>ссылается: <code>${a.split('.')[1]}</code> → <code>${b}</code></div>`);
+  const inc = RELS.filter(([,b])=>b.startsWith(id+'.')).map(([a])=>`<div>на неё ссылается: <code>${a}</code></div>`);
+  document.getElementById('rels').innerHTML = [...out, ...inc].join('') || '';
+  document.getElementById('cols').innerHTML = '<dl>'+t.cols.map(([n,ty,k,nul,d])=>
+    `<dt>${n} <i>${ty}${nul?', null':', not null'}</i>${k?`<em>${k}</em>`:''}</dt><dd>${esc(d)}</dd>`).join('')+'</dl>';
+  p.classList.add('open');
+}
+document.getElementById('pClose').onclick = ()=>select(null);
+document.addEventListener('keydown', e=>{
+  if (e.key==='Escape') select(null);
+  if (e.key==='Enter' && document.activeElement.classList.contains('tbl')) select(document.activeElement.dataset.id);
+  if ((e.key==='+'||e.key==='=') && !e.ctrlKey) zoomAt(1.2, vp.clientWidth/2, vp.clientHeight/2);
+  if (e.key==='-' && !e.ctrlKey) zoomAt(1/1.2, vp.clientWidth/2, vp.clientHeight/2);
+  if (e.key==='0') fit();
+});
+document.getElementById('zin').onclick = ()=>zoomAt(1.2, vp.clientWidth/2, vp.clientHeight/2);
+document.getElementById('zout').onclick = ()=>zoomAt(1/1.2, vp.clientWidth/2, vp.clientHeight/2);
+document.getElementById('fit').onclick = fit;
+document.getElementById('reset').onclick = ()=>{ TABLES.forEach(t=>{ t.x=DEFAULT_POS[t.id].x; t.y=DEFAULT_POS[t.id].y; }); try{localStorage.removeItem(STORE);}catch(e){} render(); fit(); };
+document.getElementById('theme').onclick = ()=>{
+  const root = document.documentElement;
+  const cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  root.dataset.theme = cur==='dark' ? 'light' : 'dark';
+};
+window.addEventListener('resize', ()=>{});
+
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(()=>{ render(); fit(); });
+render(); fit();
+</script>
+</body>
+</html>
